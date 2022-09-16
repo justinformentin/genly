@@ -1,31 +1,7 @@
-const fs = require("fs-extra");
-const path = require("path");
-const handlebars = require("handlebars");
-const marked = require("marked");
-const createDOMPurify = require("dompurify");
-const { JSDOM } = require("jsdom");
-
-function createHtml(content) {
-  const window = new JSDOM("").window;
-  const DOMPurify = createDOMPurify(window);
-  return DOMPurify.sanitize(marked.parse(content));
-}
-
-async function transformCallback(content, filename) {
-  const outputDirectory = "dist/";
-  const layoutPath = "templates/layout/index.html.hbs";
-  const layout = fs.readFileSync(layoutPath).toString("utf-8");
-  const template = handlebars.compile(layout);
-  fs.ensureDir(outputDirectory);
-
-  const html = createHtml(content);
-
-  const htmlPageName = filename.slice(0, -3);
-  const outPath = "dist/" + htmlPageName + ".html";
-
-  //   fs.rmSync(outPath);
-  fs.writeFileSync(outPath, template({ content: html }));
-}
+import fs from "fs-extra";
+import path from "path";
+import handlebars from "handlebars";
+import { markdownToHtml } from "./markdownToHtml.js";
 
 function registerPartials() {
   const partials = ["seo", "sidebar"];
@@ -54,17 +30,16 @@ async function handleRemovedFiles(pageFiles) {
 }
 
 async function copyLinkedFiles() {
-  const inputDir = 'images/';
-  const outputDir = 'dist/images/';
+  const inputDir = "images/";
+  const outputDir = "dist/images/";
   fs.readdirSync(inputDir).forEach((filename) => {
-    console.log('imagedir filename: ', filename)
     const inPath = inputDir + filename;
     const outPath = outputDir + filename;
+
     if (!fs.existsSync(outPath)) {
-      console.log('does not exist')
       try {
         fs.ensureDir(path.dirname(outPath));
-        console.log('ensureDir');
+        
         fs.copyFile(inPath, outPath);
       } catch (err) {
         console.error(`error copying file`, err);
@@ -80,17 +55,21 @@ async function init() {
   // Partials
   registerPartials();
 
+  copyLinkedFiles();
+
   fs.readdirSync(inputDirectory).forEach((filename) => {
     // Save filenames to check for removed files later
     pageFiles.push(filename);
 
-    fs.readFile(inputDirectory + filename, "utf-8", (err, content) => {
+    fs.readFile(inputDirectory + filename, "utf-8", async (err, content) => {
       if (err) throw err;
-      transformCallback(content, filename);
+      const htmlPageName = filename.slice(0, -3);
+      const outPath = "dist/" + htmlPageName + ".html";
+      const htmlFinal = await markdownToHtml(content, filename);
+      fs.writeFileSync(outPath, htmlFinal);
     });
   });
   //   return Promise.all(promiseArr).then(() => {});
-  copyLinkedFiles();
   handleRemovedFiles(pageFiles);
 }
 
