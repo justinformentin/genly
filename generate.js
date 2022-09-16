@@ -70,23 +70,15 @@ async function handleRemovedFiles() {
   throughDirectory(outputDirectory);
 }
 
-async function copyLinkedFiles() {
+async function copyImages() {
   const inputDir = "images/";
   const outputDir = "dist/images/";
   fs.readdirSync(inputDir).forEach((filename) => {
     imageFiles.push(filename);
     const inPath = inputDir + filename;
     const outPath = outputDir + filename;
-
-    if (!fs.existsSync(outPath)) {
-      try {
-        fs.ensureDir(path.dirname(outPath));
-        resizeImages(inPath, outputDir, filename);
-        // fs.copyFile(inPath, outPath);
-      } catch (err) {
-        console.error(`error copying file`, err);
-      }
-    }
+    fs.ensureDir(path.dirname(outPath));
+    resizeImages(inPath, outputDir, filename);
   });
 }
 
@@ -96,7 +88,7 @@ async function init() {
   // Partials
   registerPartials();
 
-  copyLinkedFiles();
+  copyImages();
 
   fs.readdirSync(inputDirectory).forEach((filename) => {
     // Save filenames to check for removed files later
