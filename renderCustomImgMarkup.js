@@ -29,7 +29,7 @@ export function renderCustomImgMarkup({
         );
         // Test low res image
         // const lowResImg = "http://i.stack.imgur.com/zWfJ5.jpg";
-        const size = "width: 1080px; height: 720px; display: block;";
+        const size = "width: 100%; display: block;";
         const style = ` background-image: url(${lowResImg}); background-size: cover; ${size}`;
 
         const src = node.properties.src;

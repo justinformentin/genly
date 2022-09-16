@@ -2,6 +2,20 @@ import fs from "fs-extra";
 import path from "path";
 import handlebars from "handlebars";
 import { markdownToHtml } from "./markdownToHtml.js";
+import { resizeImages } from "./resizeImages.js";
+
+const imageFiles = [];
+const pageFiles = [];
+
+const defaultImageExtensions = [
+  "svg",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "avif",
+];
 
 function registerPartials() {
   const partials = ["seo", "sidebar"];
@@ -13,34 +27,62 @@ function registerPartials() {
   });
 }
 
-async function handleRemovedFiles(pageFiles) {
-  // Remove pages from /dist if no longer in /pages
-  const outputDirectory = "dist/";
-  fs.readdirSync(outputDirectory).forEach((filename) => {
-    const removeHtmlExt = (f) => f.slice(0, -5);
-    const removeMdExt = (f) => f.slice(0, -3);
-    const foundIndex = pageFiles.findIndex(
-      (name) => removeMdExt(name) === removeHtmlExt(filename)
-    );
-    if (foundIndex === -1) {
-      const filePath = outputDirectory + filename;
-      fs.unlink(filePath, (err) => !err && console.log(filePath + " deleted!"));
-    }
+const unlink = (absolutePath) =>
+  fs.unlink(
+    absolutePath,
+    (err) => !err && console.log(absolutePath + " deleted!")
+  );
+
+const isImage = (filename) => {
+  const imgExtRegex = new RegExp(`\\.(${defaultImageExtensions.join("|")})$`);
+  return imgExtRegex.test(filename);
+};
+
+function removeImages(absolutePath) {
+  const idx = imageFiles.findIndex((file) => {
+    const fileNoExt = file.match(/(.+?)(\.[^\.]+$|$)/)[1];
+    const image = new RegExp(`^(.*?(\(${fileNoExt}))[^$]*)$`);
+    return image.test(absolutePath);
   });
+  idx === -1 && unlink(absolutePath);
+}
+
+function removePages(absolutePath, file) {
+  const match = (str) => str.match(/(.+?)(\.[^\.]+$|$)/)[1];
+  const idx = pageFiles.findIndex((name) => match(name) === match(file));
+  idx === -1 && unlink(absolutePath);
+}
+
+async function handleRemovedFiles() {
+  const outputDirectory = "dist/";
+  function throughDirectory(directory) {
+    fs.readdirSync(directory).forEach((file) => {
+      const absolute = path.join(directory, file);
+      if (fs.statSync(absolute).isDirectory()) {
+        return throughDirectory(absolute);
+      } else {
+        isImage(absolute)
+          ? removeImages(absolute)
+          : removePages(absolute, file);
+      }
+    });
+  }
+  throughDirectory(outputDirectory);
 }
 
 async function copyLinkedFiles() {
   const inputDir = "images/";
   const outputDir = "dist/images/";
   fs.readdirSync(inputDir).forEach((filename) => {
+    imageFiles.push(filename);
     const inPath = inputDir + filename;
     const outPath = outputDir + filename;
 
     if (!fs.existsSync(outPath)) {
       try {
         fs.ensureDir(path.dirname(outPath));
-        
-        fs.copyFile(inPath, outPath);
+        resizeImages(inPath, outputDir, filename);
+        // fs.copyFile(inPath, outPath);
       } catch (err) {
         console.error(`error copying file`, err);
       }
@@ -50,7 +92,6 @@ async function copyLinkedFiles() {
 
 async function init() {
   const inputDirectory = "pages/";
-  const pageFiles = [];
 
   // Partials
   registerPartials();
@@ -69,8 +110,7 @@ async function init() {
       fs.writeFileSync(outPath, htmlFinal);
     });
   });
-  //   return Promise.all(promiseArr).then(() => {});
-  handleRemovedFiles(pageFiles);
+  handleRemovedFiles();
 }
 
 init();
