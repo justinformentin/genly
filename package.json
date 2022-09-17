@@ -1,10 +1,11 @@
 {
   "name": "genly",
-  "version": "0.0.3",
+  "version": "0.0.2",
   "description": "",
-  "main": "generate.js",
+  "main": "scripts/generate.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "gen": "node scripts/generate.js"
   },
   "type": "module",
   "keywords": [],
@@ -26,9 +27,11 @@
     "rehype-parse": "^8.0.4",
     "rehype-sanitize": "^5.0.1",
     "rehype-stringify": "^9.0.3",
+    "remark": "^14.0.2",
     "remark-frontmatter": "^4.0.1",
     "remark-gfm": "^3.0.1",
     "remark-parse": "^10.0.1",
+    "remark-parse-frontmatter": "^1.0.3",
     "remark-prism": "^1.3.6",
     "remark-rehype": "^10.1.0",
     "remark-toc": "^8.0.1",

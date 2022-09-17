@@ -1,8 +1,10 @@
 import fs from "fs-extra";
 import path from "path";
 import handlebars from "handlebars";
-import { markdownToHtml } from "./markdownToHtml.js";
+// import { markdownToHtml } from "./markdownToHtmlMarked.js";
+import { markdownToHtml } from "./markdownToHtmlRemark.js";
 import { resizeImages } from "./resizeImages.js";
+import config from "../config.js";
 
 const imageFiles = [];
 const pageFiles = [];
@@ -71,7 +73,7 @@ async function handleRemovedFiles() {
 }
 
 async function copyImages() {
-  const inputDir = "images/";
+  const inputDir = "site/images/";
   const outputDir = "dist/images/";
   fs.readdirSync(inputDir).forEach((filename) => {
     imageFiles.push(filename);
@@ -82,8 +84,57 @@ async function copyImages() {
   });
 }
 
+function handleFileConversion(inputDirectory, filename) {
+  const outputDirectory = "dist/";
+  let outputPage;
+  function throughDirectory(directory) {
+    fs.readdirSync(directory).forEach((file) => {
+      // const rawdata = fs.readFileSync('../config.json');
+      // const student = JSON.parse(rawdata);
+      console.log('-------------------')
+      console.log("CONVERSION FILE: ", file);
+      const absolute = path.join(directory, file);
+      const isDirectory = fs.statSync(absolute).isDirectory();
+      console.log('isDirectory', isDirectory);
+      const idx = config.pages.findIndex((p) => p === file);
+      console.log('idx', idx);
+
+      if (idx !== -1) {
+        const pageDirOutPath = `dist/${file}`;
+        console.log('pageDirOutPath', pageDirOutPath);
+        if (!fs.existsSync(pageDirOutPath)) fs.mkdirSync(pageDirOutPath);
+        outputPage = file;
+        console.log('outputPage', outputPage);
+      }
+      console.log("absolute", absolute);
+      console.log('outputPage', outputPage);
+
+      if (isDirectory) {
+        return throughDirectory(absolute);
+      } else if(!isImage(file)){
+        fs.readFile(
+          absolute,
+          "utf-8",
+          async (err, content) => {
+            if (err) throw err;
+            const htmlPageName = file.slice(0, -3);
+            const outPath = `dist/${outputPage}/${htmlPageName}.html`;
+            const htmlFinal = await markdownToHtml(content, file);
+            fs.writeFileSync(outPath, htmlFinal);
+          }
+        );
+      }
+    });
+  }
+  throughDirectory(inputDirectory);
+
+  // // Save filenames to check for removed files later
+  // pageFiles.push(filename);
+}
+
 async function init() {
-  const inputDirectory = "pages/";
+  // const inputDirectory = "site/pages/";
+  const inputDirectory = "site/content/";
 
   // Partials
   registerPartials();
@@ -91,17 +142,9 @@ async function init() {
   copyImages();
 
   fs.readdirSync(inputDirectory).forEach((filename) => {
-    // Save filenames to check for removed files later
-    pageFiles.push(filename);
-
-    fs.readFile(inputDirectory + filename, "utf-8", async (err, content) => {
-      if (err) throw err;
-      const htmlPageName = filename.slice(0, -3);
-      const outPath = "dist/" + htmlPageName + ".html";
-      const htmlFinal = await markdownToHtml(content, filename);
-      fs.writeFileSync(outPath, htmlFinal);
-    });
+    handleFileConversion(inputDirectory, filename);
   });
+
   handleRemovedFiles();
 }
 
