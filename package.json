@@ -5,7 +5,8 @@
   "main": "scripts/generate.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "gen": "node scripts/generate.js"
+    "gen": "node scripts/generate.js",
+    "gen2": "tsc && node lib/scripts/generate.js"
   },
   "type": "module",
   "keywords": [],
@@ -36,6 +37,7 @@
     "remark-rehype": "^10.1.0",
     "remark-toc": "^8.0.1",
     "sharp": "^0.31.0",
+    "typescript": "^4.8.3",
     "unified": "^10.1.2",
     "unist-util-visit": "^4.1.1",
     "unist-util-visit-parents": "^5.1.1"

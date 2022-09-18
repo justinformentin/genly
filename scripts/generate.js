@@ -6,18 +6,14 @@ import { markdownToHtml } from "./markdownToHtmlRemark.js";
 import { resizeImages } from "./resizeImages.js";
 import config from "../config.js";
 
-const imageFiles = [];
-const pageFiles = [];
-
-const defaultImageExtensions = [
-  "svg",
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "webp",
-  "avif",
-];
+// interface Frontmatter {
+//   slug: string;
+//   date: string;
+//   title: string;
+//   chunk: string;
+//   category: string;
+//   tags: string;
+// }
 
 function registerPartials() {
   const partials = ["seo", "sidebar"];
@@ -29,123 +25,49 @@ function registerPartials() {
   });
 }
 
-const unlink = (absolutePath) =>
-  fs.unlink(
-    absolutePath,
-    (err) => !err && console.log(absolutePath + " deleted!")
-  );
-
-const isImage = (filename) => {
-  const imgExtRegex = new RegExp(`\\.(${defaultImageExtensions.join("|")})$`);
-  return imgExtRegex.test(filename);
-};
-
-function removeImages(absolutePath) {
-  const idx = imageFiles.findIndex((file) => {
-    const fileNoExt = file.match(/(.+?)(\.[^\.]+$|$)/)[1];
-    const image = new RegExp(`^(.*?(\(${fileNoExt}))[^$]*)$`);
-    return image.test(absolutePath);
-  });
-  idx === -1 && unlink(absolutePath);
-}
-
-function removePages(absolutePath, file) {
-  const match = (str) => str.match(/(.+?)(\.[^\.]+$|$)/)[1];
-  const idx = pageFiles.findIndex((name) => match(name) === match(file));
-  idx === -1 && unlink(absolutePath);
-}
-
-async function handleRemovedFiles() {
-  const outputDirectory = "dist/";
-  function throughDirectory(directory) {
-    fs.readdirSync(directory).forEach((file) => {
-      const absolute = path.join(directory, file);
-      if (fs.statSync(absolute).isDirectory()) {
-        return throughDirectory(absolute);
-      } else {
-        isImage(absolute)
-          ? removeImages(absolute)
-          : removePages(absolute, file);
-      }
-    });
-  }
-  throughDirectory(outputDirectory);
-}
-
-async function copyImages() {
-  const inputDir = "site/images/";
-  const outputDir = "dist/images/";
-  fs.readdirSync(inputDir).forEach((filename) => {
-    imageFiles.push(filename);
-    const inPath = inputDir + filename;
-    const outPath = outputDir + filename;
-    fs.ensureDir(path.dirname(outPath));
-    resizeImages(inPath, outputDir, filename);
-  });
-}
-
-function handleFileConversion(inputDirectory, filename) {
-  const outputDirectory = "dist/";
-  let outputPage;
-  function throughDirectory(directory) {
-    fs.readdirSync(directory).forEach((file) => {
-      // const rawdata = fs.readFileSync('../config.json');
-      // const student = JSON.parse(rawdata);
-      console.log('-------------------')
-      console.log("CONVERSION FILE: ", file);
-      const absolute = path.join(directory, file);
-      const isDirectory = fs.statSync(absolute).isDirectory();
-      console.log('isDirectory', isDirectory);
-      const idx = config.pages.findIndex((p) => p === file);
-      console.log('idx', idx);
-
-      if (idx !== -1) {
-        const pageDirOutPath = `dist/${file}`;
-        console.log('pageDirOutPath', pageDirOutPath);
-        if (!fs.existsSync(pageDirOutPath)) fs.mkdirSync(pageDirOutPath);
-        outputPage = file;
-        console.log('outputPage', outputPage);
-      }
-      console.log("absolute", absolute);
-      console.log('outputPage', outputPage);
-
-      if (isDirectory) {
-        return throughDirectory(absolute);
-      } else if(!isImage(file)){
-        fs.readFile(
-          absolute,
-          "utf-8",
-          async (err, content) => {
-            if (err) throw err;
-            const htmlPageName = file.slice(0, -3);
-            const outPath = `dist/${outputPage}/${htmlPageName}.html`;
-            const htmlFinal = await markdownToHtml(content, file);
-            fs.writeFileSync(outPath, htmlFinal);
-          }
-        );
-      }
-    });
-  }
-  throughDirectory(inputDirectory);
-
-  // // Save filenames to check for removed files later
-  // pageFiles.push(filename);
+async function handleMarkdownConversion(absolute, subDirectory, filenameNoExt) {
+  const content = fs.readFileSync(absolute, "utf-8");
+  const { html, frontmatter } = await markdownToHtml(content);
+  const subDir = `dist/${subDirectory}`;
+  fs.ensureDir(subDir);
+  const fileDir = `${subDir}/${frontmatter.slug}`;
+  fs.ensureDir(fileDir);
+  const outPath = `${fileDir}/${filenameNoExt}.html`;
+  fs.writeFileSync(outPath, html);
+  return frontmatter;
 }
 
 async function init() {
-  // const inputDirectory = "site/pages/";
-  const inputDirectory = "site/content/";
-
+  const inputDirectory = "site/";
+  fs.ensureDir("dist/");
   // Partials
   registerPartials();
 
-  copyImages();
+  config.pages.forEach(async (subDirectory) =>
+    fs.readdirSync(inputDirectory + subDirectory).map(async (filename) => {
+      const inPath = inputDirectory + subDirectory + "/" + filename;
 
-  fs.readdirSync(inputDirectory).forEach((filename) => {
-    handleFileConversion(inputDirectory, filename);
-  });
-
-  handleRemovedFiles();
+      const files = fs.readdirSync(inPath);
+      const findExt = (ext) => files.find((d) => d.split(".")[1] === ext);
+      const foundMd = findExt("md");
+      if (foundMd) {
+        const absoluteMd = path.join(inPath, foundMd);
+        const mdNoExt = foundMd.split(".")[0];
+        const frontmatter = await handleMarkdownConversion(
+          absoluteMd,
+          subDirectory,
+          mdNoExt
+        );
+        const foundImg = findExt("jpg");
+        if (foundImg) {
+          const absoluteImg = path.join(inPath, foundImg);
+          const imgNoExt = foundImg.split(".")[0];
+          const imageOutputDir = `dist/${subDirectory}/${frontmatter.slug}`;
+          resizeImages(absoluteImg, imageOutputDir, imgNoExt);
+        }
+      }
+    })
+  );
 }
 
 init();

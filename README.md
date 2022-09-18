@@ -83,7 +83,7 @@ It's the same story with the custom img markup I want. I can't just pass in the 
 
 It looks like a package called `grey-matter` to parse the frontmatter when using `marked`. I think I need to look into `marked` more because while it might not has as many plugins, do I really even want that if the code becomes convoluted as a result? Maybe I'm just not groking remark/unified, and it'll click after more testing. Also remember to wrap added attributes in `""`, for example `srcset=${}` works with `remark`, but with `marked` you need `srcset="${}"` to work properly.
 
-## Structure
+#### Structure
 
 Do I want the input directory's structure to mirror the expected output directory's structure? For example, to get
 
@@ -127,3 +127,13 @@ or
 ```
 
 I feel the second option makes no sense, and I'm not sure why I was even thinking about it. The idea is to either have it mirror the output exactly, or separate everything into chunks - pages, posts, etc. What would be the benefit of separating everything? Meanwhile, mirroring the output would make parsing and converting easier. Instead of taking separate pages and matching them with posts, I would just need to copy everything over as it stands.
+
+### 2022-09-17
+
+#### Structure
+
+Coming back to the structure after moving some things around, I'm still not sure what makes the most sense. Now that I've tested both structures it's clear what the pros and cons are.
+
+If I mirror the structure, the conversion logic will essentially need to be one big conditional - check if file is HTML, or MD, or Image. And then I will need to change the blog post files directory from `2022-09-17` to `blog-post-title` because I do not want to have a bunch of blog posts all organized by title, it'll be hard to find anything - chronologically is much easier to look at. The other issue is that it kind of feel weird to be mixing multiple file types. I'd ideally want all HTML files together, all MD files together, etc. 
+
+If I don't mirror the structure, I'll need to compare directories to pages. For example, I'll have a `content/blog` directory, and a `pages/blog.html`. I'd need to convert that into `public/blog/index.html. It's not as straightforward as mirroring.
